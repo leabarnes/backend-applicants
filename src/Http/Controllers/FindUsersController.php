@@ -32,9 +32,25 @@ class FindUsersController
 
         // FIXME: Se debe tener cuidado en la implementación
         // para que siga las notas del documento de requisitos
-        $localUsers = $this->localUsersRepository->findByLogin($login, $limit);
         $githubUsers = $this->gitHubUsersRepository->findByLogin($login, $limit);
-
+        $localUsers = $this->localUsersRepository->findByLogin($login, $limit);
+        
+        $countGit = count($githubUsers);
+        $countLocal = count($localUsers);
+        
+        if($countGit >= $limit/2){
+            if($countLocal >= $limit/2){
+                $countLocal = $countGit = $limit/2;
+            } else {
+                $countGit = $limit - $countLocal;
+            }
+        } else {
+            if($countLocal > $limit/2){
+                $countLocal = $limit - $countGit;
+            }
+        }
+        $localUsers = $this->cutCollection($localUsers, $countLocal);
+        $githubUsers = $this->cutCollection($githubUsers, $countGit);
         $users = $localUsers->merge($githubUsers)->map(function (User $user) {
             return [
                 'id' => $user->getId()->getValue(),
@@ -52,5 +68,17 @@ class FindUsersController
 
         return $response->withHeader('Content-Type', 'application/json')
             ->withStatus(200, 'OK');
+    }
+    
+    private function cutCollection($collection, $limit){
+        $arrAux = array();
+        for($i = 0; $i < $limit; $i++){
+            if(isset($collection[$i])){
+                array_push ($arrAux, $collection[$i]);
+            } else {
+                break;
+            }
+        }
+        return collect($arrAux);
     }
 }
